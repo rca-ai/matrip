@@ -21,6 +21,19 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+      - name: Configure stable signing key (if repository secrets are configured)
+        if: ${{ secrets.MATRIP_KEYSTORE_BASE64 != '' }}
+        env:
+          MATRIP_KEYSTORE_BASE64: ${{ secrets.MATRIP_KEYSTORE_BASE64 }}
+          MATRIP_KEYSTORE_PASSWORD: ${{ secrets.MATRIP_KEYSTORE_PASSWORD }}
+          MATRIP_KEY_ALIAS: ${{ secrets.MATRIP_KEY_ALIAS }}
+          MATRIP_KEY_PASSWORD: ${{ secrets.MATRIP_KEY_PASSWORD }}
+        run: |
+          echo "$MATRIP_KEYSTORE_BASE64" | base64 --decode > "$GITHUB_WORKSPACE/app/matrip-release.keystore"
+          echo "MATRIP_KEYSTORE_PATH=$GITHUB_WORKSPACE/app/matrip-release.keystore" >> "$GITHUB_ENV"
+          echo "MATRIP_KEYSTORE_PASSWORD=$MATRIP_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+          echo "MATRIP_KEY_ALIAS=$MATRIP_KEY_ALIAS" >> "$GITHUB_ENV"
+          echo "MATRIP_KEY_PASSWORD=$MATRIP_KEY_PASSWORD" >> "$GITHUB_ENV"
       - name: Build debug APK
         run: gradle --no-daemon assembleDebug
       - name: Upload installable test APK artifact
