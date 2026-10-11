@@ -14,12 +14,16 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Toast;
 import androidx.webkit.WebViewAssetLoader;
+import org.json.JSONObject;
+import org.json.JSONTokener;
 
 public class MainActivity extends Activity {
     private WebView webView;
     private ValueCallback<Uri[]> fileCallback;
     private static final int FILE_CHOOSER_REQUEST = 4001;
     private WebViewAssetLoader assetLoader;
+    private boolean checkingLegacyStorage = true;
+    private String legacyStorage = null;
     @Override public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         assetLoader = new WebViewAssetLoader.Builder().addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this)).build();
@@ -28,6 +32,28 @@ public class MainActivity extends Activity {
         settings.setAllowFileAccess(true); settings.setAllowContentAccess(true); settings.setJavaScriptCanOpenWindowsAutomatically(true); settings.setSupportMultipleWindows(true);
         webView.setWebViewClient(new WebViewClient() {
             @Override public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) { return assetLoader.shouldInterceptRequest(request.getUrl()); }
+            @Override public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                if (checkingLegacyStorage && url.startsWith("file:///android_asset/")) {
+                    checkingLegacyStorage = false;
+                    view.evaluateJavascript("localStorage.getItem('matrip-data-v1')", value -> {
+                        try {
+                            Object parsed = new JSONTokener(value).nextValue();
+                            if (parsed instanceof String && !((String) parsed).isEmpty()) legacyStorage = (String) parsed;
+                        } catch (Exception ignored) { }
+                        view.loadUrl("https://appassets.androidplatform.net/assets/TripPocket_travel_app.html");
+                    });
+                    return;
+                }
+                if (url.startsWith("https://appassets.androidplatform.net/assets/") && legacyStorage != null) {
+                    String oldData = legacyStorage;
+                    legacyStorage = null;
+                    String quoted = JSONObject.quote(oldData);
+                    view.evaluateJavascript("(function(){if(!localStorage.getItem('matrip-data-v1')){localStorage.setItem('matrip-data-v1'," + quoted + ");return true;}return false;})()", result -> {
+                        if ("true".equals(result)) view.reload();
+                    });
+                }
+            }
             @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) { Uri u=request.getUrl(); if("appassets.androidplatform.net".equals(u.getHost()))return false; return openExternal(u); }
             @Override public boolean shouldOverrideUrlLoading(WebView view,String url) { Uri u=Uri.parse(url); if("appassets.androidplatform.net".equals(u.getHost()))return false; return openExternal(u); }
         });
@@ -44,7 +70,7 @@ public class MainActivity extends Activity {
                 });((WebView.WebViewTransport)resultMsg.obj).setWebView(popup);resultMsg.sendToTarget();return true;
             }
         });
-        if(savedInstanceState==null)webView.loadUrl("https://appassets.androidplatform.net/assets/TripPocket_travel_app.html");else webView.restoreState(savedInstanceState);
+        if(savedInstanceState==null)webView.loadUrl("file:///android_asset/TripPocket_travel_app.html");else webView.restoreState(savedInstanceState);
     }
     private boolean openExternal(Uri uri){String s=uri.getScheme();if("http".equals(s)||"https".equals(s)||"mailto".equals(s)||"tel".equals(s)){try{startActivity(new Intent(Intent.ACTION_VIEW,uri));}catch(ActivityNotFoundException e){Toast.makeText(this,"열 수 있는 앱을 찾을 수 없습니다.",Toast.LENGTH_SHORT).show();}return true;}return false;}
     @Override protected void onActivityResult(int requestCode,int resultCode,Intent intent){super.onActivityResult(requestCode,resultCode,intent);if(requestCode==FILE_CHOOSER_REQUEST&&fileCallback!=null){Uri[] results=null;if(resultCode==RESULT_OK&&intent!=null){if(intent.getClipData()!=null){int n=intent.getClipData().getItemCount();results=new Uri[n];for(int i=0;i<n;i++)results[i]=intent.getClipData().getItemAt(i).getUri();}else if(intent.getData()!=null)results=new Uri[]{intent.getData()};}fileCallback.onReceiveValue(results);fileCallback=null;}}
