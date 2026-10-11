@@ -4,6 +4,22 @@ plugins {
 android {
     namespace 'com.guidrthai.matrip'
     compileSdk 35
+    signingConfigs {
+        def stableKeyPath = System.getenv('MATRIP_KEYSTORE_PATH')
+        if (stableKeyPath) {
+            stableRelease {
+                storeFile file(stableKeyPath)
+                storePassword System.getenv('MATRIP_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('MATRIP_KEY_ALIAS')
+                keyPassword System.getenv('MATRIP_KEY_PASSWORD')
+            }
+        }
+    }
+    buildTypes {
+        debug {
+            if (System.getenv('MATRIP_KEYSTORE_PATH')) signingConfig signingConfigs.stableRelease
+        }
+    }
     defaultConfig {
         applicationId 'com.guidrthai.matrip'
         minSdk 23
