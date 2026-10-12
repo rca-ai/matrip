@@ -1,6 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
-    <application android:allowBackup="true" android:label="MaTrip" android:icon="@drawable/matrip_logo" android:theme="@android:style/Theme.Material.Light.NoActionBar">
+    <application android:allowBackup="true" android:label="MaTrip Test" android:icon="@drawable/matrip_logo" android:theme="@android:style/Theme.Material.Light.NoActionBar">
         <activity android:name=".MainActivity" android:configChanges="orientation|screenSize|keyboardHidden" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
