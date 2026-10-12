@@ -17,6 +17,9 @@ android {
     }
     buildTypes {
         debug {
+            // Keep the test APK separate from any existing MaTrip installation.
+            applicationIdSuffix '.test'
+            versionNameSuffix '-test'
             if (System.getenv('MATRIP_KEYSTORE_PATH')) signingConfig signingConfigs.stableRelease
         }
     }
@@ -24,8 +27,8 @@ android {
         applicationId 'com.guidrthai.matrip'
         minSdk 23
         targetSdk 28
-        versionCode 9
-        versionName '1.0.8'
+        versionCode 10
+        versionName '1.0.9'
     }
 }
 
