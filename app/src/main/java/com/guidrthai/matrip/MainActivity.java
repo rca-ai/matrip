@@ -4,6 +4,11 @@ import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.net.Uri;
+import android.provider.DocumentsContract;
+import android.content.ContentResolver;
+import android.webkit.JavascriptInterface;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import android.os.Bundle;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
@@ -21,6 +26,8 @@ public class MainActivity extends Activity {
     private WebView webView;
     private ValueCallback<Uri[]> fileCallback;
     private static final int FILE_CHOOSER_REQUEST = 4001;
+    private static final int BACKUP_CREATE_REQUEST = 4002;
+    private String pendingBackupJson = null;
     private WebViewAssetLoader assetLoader;
     private boolean checkingLegacyStorage = true;
     private String legacyStorage = null;
@@ -28,6 +35,7 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         assetLoader = new WebViewAssetLoader.Builder().addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this)).build();
         webView = new WebView(this); setContentView(webView);
+        webView.addJavascriptInterface(new Object() { @JavascriptInterface public void saveBackup(String filename, String json) { runOnUiThread(() -> { pendingBackupJson = json; Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT); intent.addCategory(Intent.CATEGORY_OPENABLE); intent.setType("application/json"); intent.putExtra(Intent.EXTRA_TITLE, filename); try { startActivityForResult(intent, BACKUP_CREATE_REQUEST); } catch (ActivityNotFoundException e) { pendingBackupJson = null; Toast.makeText(MainActivity.this, "백업 저장 위치를 선택할 수 없습니다.", Toast.LENGTH_LONG).show(); } }); } }, "AndroidBridge");
         WebSettings settings=webView.getSettings(); settings.setJavaScriptEnabled(true); settings.setDomStorageEnabled(true);
         settings.setAllowFileAccess(true); settings.setAllowContentAccess(true); settings.setJavaScriptCanOpenWindowsAutomatically(true); settings.setSupportMultipleWindows(true);
         webView.setWebViewClient(new WebViewClient() {
@@ -73,7 +81,7 @@ public class MainActivity extends Activity {
         if(savedInstanceState==null)webView.loadUrl("file:///android_asset/TripPocket_travel_app.html");else webView.restoreState(savedInstanceState);
     }
     private boolean openExternal(Uri uri){String s=uri.getScheme();if("http".equals(s)||"https".equals(s)||"mailto".equals(s)||"tel".equals(s)){try{startActivity(new Intent(Intent.ACTION_VIEW,uri));}catch(ActivityNotFoundException e){Toast.makeText(this,"열 수 있는 앱을 찾을 수 없습니다.",Toast.LENGTH_SHORT).show();}return true;}return false;}
-    @Override protected void onActivityResult(int requestCode,int resultCode,Intent intent){super.onActivityResult(requestCode,resultCode,intent);if(requestCode==FILE_CHOOSER_REQUEST&&fileCallback!=null){Uri[] results=null;if(resultCode==RESULT_OK&&intent!=null){if(intent.getClipData()!=null){int n=intent.getClipData().getItemCount();results=new Uri[n];for(int i=0;i<n;i++)results[i]=intent.getClipData().getItemAt(i).getUri();}else if(intent.getData()!=null)results=new Uri[]{intent.getData()};}fileCallback.onReceiveValue(results);fileCallback=null;}}
+    @Override protected void onActivityResult(int requestCode,int resultCode,Intent intent){super.onActivityResult(requestCode,resultCode,intent);if(requestCode==BACKUP_CREATE_REQUEST){ if(resultCode==RESULT_OK && intent!=null && intent.getData()!=null && pendingBackupJson!=null){ try(OutputStream out=getContentResolver().openOutputStream(intent.getData())){ if(out!=null){out.write(pendingBackupJson.getBytes(StandardCharsets.UTF_8));Toast.makeText(this,"백업 파일을 저장했습니다.",Toast.LENGTH_LONG).show();} }catch(Exception e){Toast.makeText(this,"백업 저장에 실패했습니다.",Toast.LENGTH_LONG).show();} } pendingBackupJson=null; return; } if(requestCode==FILE_CHOOSER_REQUEST&&fileCallback!=null){Uri[] results=null;if(resultCode==RESULT_OK&&intent!=null){if(intent.getClipData()!=null){int n=intent.getClipData().getItemCount();results=new Uri[n];for(int i=0;i<n;i++)results[i]=intent.getClipData().getItemAt(i).getUri();}else if(intent.getData()!=null)results=new Uri[]{intent.getData()};}fileCallback.onReceiveValue(results);fileCallback=null;}}
     @Override protected void onSaveInstanceState(Bundle outState){webView.saveState(outState);super.onSaveInstanceState(outState);}
     @Override public void onBackPressed(){if(webView!=null&&webView.canGoBack())webView.goBack();else super.onBackPressed();}
 }
