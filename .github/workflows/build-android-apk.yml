@@ -28,15 +28,15 @@ jobs:
           MATRIP_KEY_ALIAS: ${{ secrets.MATRIP_KEY_ALIAS }}
           MATRIP_KEY_PASSWORD: ${{ secrets.MATRIP_KEY_PASSWORD }}
         run: |
-          if [ -n "$MATRIP_KEYSTORE_BASE64" ]; then
-            echo "$MATRIP_KEYSTORE_BASE64" | base64 --decode > "$GITHUB_WORKSPACE/app/matrip-release.keystore"
-            echo "MATRIP_KEYSTORE_PATH=$GITHUB_WORKSPACE/app/matrip-release.keystore" >> "$GITHUB_ENV"
-            echo "MATRIP_KEYSTORE_PASSWORD=$MATRIP_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
-            echo "MATRIP_KEY_ALIAS=$MATRIP_KEY_ALIAS" >> "$GITHUB_ENV"
-            echo "MATRIP_KEY_PASSWORD=$MATRIP_KEY_PASSWORD" >> "$GITHUB_ENV"
-          else
-            echo "Stable signing secrets not configured; using the temporary CI debug key. Future updates may require reinstalling."
+          if [ -z "$MATRIP_KEYSTORE_BASE64" ] || [ -z "$MATRIP_KEYSTORE_PASSWORD" ] || [ -z "$MATRIP_KEY_ALIAS" ] || [ -z "$MATRIP_KEY_PASSWORD" ]; then
+            echo "::error::Stable APK signing is not configured. Add the four MATRIP_* repository Actions secrets before building. Do not publish APKs signed with a temporary key; they cannot reliably update an installed version."
+            exit 1
           fi
+          echo "$MATRIP_KEYSTORE_BASE64" | base64 --decode > "$GITHUB_WORKSPACE/app/matrip-release.keystore"
+          echo "MATRIP_KEYSTORE_PATH=$GITHUB_WORKSPACE/app/matrip-release.keystore" >> "$GITHUB_ENV"
+          echo "MATRIP_KEYSTORE_PASSWORD=$MATRIP_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+          echo "MATRIP_KEY_ALIAS=$MATRIP_KEY_ALIAS" >> "$GITHUB_ENV"
+          echo "MATRIP_KEY_PASSWORD=$MATRIP_KEY_PASSWORD" >> "$GITHUB_ENV"
       - name: Build debug APK
         run: gradle --no-daemon assembleDebug
       - name: Upload installable test APK artifact
