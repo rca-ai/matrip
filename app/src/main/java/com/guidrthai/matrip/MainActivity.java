@@ -50,7 +50,7 @@ public class MainActivity extends Activity {
                             Object parsed = new JSONTokener(value).nextValue();
                             if (parsed instanceof String && !((String) parsed).isEmpty()) legacyStorage = (String) parsed;
                         } catch (Exception ignored) { }
-                        view.loadUrl("https://appassets.androidplatform.net/assets/TripPocket_travel_app.html");
+                        loadLatestWebContent(view);
                     });
                     return;
                 }
@@ -80,6 +80,32 @@ public class MainActivity extends Activity {
             }
         });
         if(savedInstanceState==null)webView.loadUrl("file:///android_asset/TripPocket_travel_app.html");else webView.restoreState(savedInstanceState);
+    }
+    private void loadLatestWebContent(WebView view) {
+        final String remoteUrl = "https://raw.githubusercontent.com/rca-ai/matrip/main/TripPocket_travel_app.html";
+        new Thread(() -> {
+            java.net.HttpURLConnection connection = null;
+            try {
+                connection = (java.net.HttpURLConnection) new java.net.URL(remoteUrl).openConnection();
+                connection.setConnectTimeout(5000);
+                connection.setReadTimeout(7000);
+                connection.setUseCaches(false);
+                connection.setRequestProperty("Cache-Control", "no-cache");
+                connection.setRequestProperty("Pragma", "no-cache");
+                connection.setRequestProperty("User-Agent", "MaTrip-Android");
+                int status = connection.getResponseCode();
+                if (status < 200 || status >= 300) throw new java.io.IOException("HTTP " + status);
+                java.io.ByteArrayOutputStream output = new java.io.ByteArrayOutputStream();
+                try (java.io.InputStream input = connection.getInputStream()) {
+                    byte[] buffer = new byte[8192]; int count;
+                    while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
+                }
+                String html = output.toString("UTF-8");
+                runOnUiThread(() -> view.loadDataWithBaseURL("https://appassets.androidplatform.net/assets/TripPocket_travel_app.html", html, "text/html", "UTF-8", null));
+            } catch (Exception e) {
+                runOnUiThread(() -> view.loadUrl("https://appassets.androidplatform.net/assets/TripPocket_travel_app.html"));
+            } finally { if (connection != null) connection.disconnect(); }
+        }, "matrip-web-update").start();
     }
     private boolean openExternal(Uri uri){String s=uri.getScheme();if("http".equals(s)||"https".equals(s)||"mailto".equals(s)||"tel".equals(s)){try{startActivity(new Intent(Intent.ACTION_VIEW,uri));}catch(ActivityNotFoundException e){Toast.makeText(this,"열 수 있는 앱을 찾을 수 없습니다.",Toast.LENGTH_SHORT).show();}return true;}return false;}
     @Override protected void onActivityResult(int requestCode,int resultCode,Intent intent){super.onActivityResult(requestCode,resultCode,intent);if(requestCode==BACKUP_CREATE_REQUEST){ if(resultCode==RESULT_OK && intent!=null && intent.getData()!=null && pendingBackupJson!=null){ try(OutputStream out=getContentResolver().openOutputStream(intent.getData())){ if(out!=null){out.write(pendingBackupJson.getBytes(StandardCharsets.UTF_8));Toast.makeText(this,"백업 파일을 저장했습니다.",Toast.LENGTH_LONG).show();} }catch(Exception e){Toast.makeText(this,"백업 저장에 실패했습니다.",Toast.LENGTH_LONG).show();} } pendingBackupJson=null; return; } if(requestCode==FILE_CHOOSER_REQUEST){Uri selected=(resultCode==RESULT_OK&&intent!=null)?intent.getData():null;if(pendingApkInstall){pendingApkInstall=false;if(selected!=null){try{Intent install=new Intent(Intent.ACTION_VIEW);install.setDataAndType(selected,"application/vnd.android.package-archive");install.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);install.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);startActivity(install);}catch(Exception e){Toast.makeText(this,"APK 설치 화면을 열 수 없습니다. 파일 관리자에서 APK를 열어 주세요.",Toast.LENGTH_LONG).show();}}if(fileCallback!=null){fileCallback.onReceiveValue(null);fileCallback=null;}return;}if(fileCallback!=null){Uri[] results=null;if(resultCode==RESULT_OK&&intent!=null){if(intent.getClipData()!=null){int n=intent.getClipData().getItemCount();results=new Uri[n];for(int i=0;i<n;i++)results[i]=intent.getClipData().getItemAt(i).getUri();}else if(intent.getData()!=null)results=new Uri[]{intent.getData()};}fileCallback.onReceiveValue(results);fileCallback=null;}}}
